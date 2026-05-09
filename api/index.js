@@ -722,5 +722,5 @@ function getDashboardHTML() {
   `;
 }
 
-// Export the Express app as a serverless handler for Vercel
-module.exports = app;
+// Export as ES6 module for Vercel
+export default app;
