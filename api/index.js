@@ -7,7 +7,6 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
@@ -722,8 +721,6 @@ function getDashboardHTML() {
   `;
 }
 
-// Start server
-app.listen(PORT, () => {
-  console.log(\`🚀 Server running on http://localhost:\${PORT}\`);
-  console.log(\`📊 Dashboard: http://localhost:\${PORT}/dashboard\`);
-});
+// ==================== VERCEL SERVERLESS EXPORT ====================
+// Export for Vercel serverless environment (do not use app.listen())
+export default app;

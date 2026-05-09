@@ -1,25 +1,24 @@
 {
-  "name": "eazy-ticket-automation",
-  "version": "3.0.0",
-  "description": "EazyBusiness Ticket Automation - Vercel Edition",
-  "main": "api/index.js",
-  "type": "module",
-  "scripts": {
-    "dev": "node api/index.js",
-    "start": "node api/index.js"
-  },
-  "keywords": [
-    "automation",
-    "tickets",
-    "eazybusiness"
+  "version": "2",
+  "builds": [
+    {
+      "src": "api/index.js",
+      "use": "@vercel/node"
+    }
   ],
-  "author": "",
-  "license": "MIT",
-  "dependencies": {
-    "express": "^4.18.2",
-    "axios": "^1.6.2",
-    "dotenv": "^16.3.1",
-    "cors": "^2.8.5",
-    "body-parser": "^1.20.2"
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "api/index.js"
+    }
+  ],
+  "env": {
+    "NODE_ENV": "production",
+    "EAZY_BASE_URL": "https://help.eazybusiness.in"
+  },
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 60
+    }
   }
 }
