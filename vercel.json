@@ -1,9 +1,14 @@
 {
   "version": 2,
+  "buildCommand": "npm install",
   "builds": [
     {
       "src": "api/index.js",
-      "use": "@vercel/node"
+      "use": "@vercel/node",
+      "config": {
+        "maxLambdaSize": "50mb",
+        "zeroConfig": true
+      }
     }
   ],
   "routes": [
@@ -13,8 +18,12 @@
     }
   ],
   "env": {
-    "PORT": "3000",
     "NODE_ENV": "production",
     "EAZY_BASE_URL": "https://help.eazybusiness.in"
+  },
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 30
+    }
   }
 }
