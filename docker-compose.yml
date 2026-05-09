@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - EAZY_BASE_URL=https://help.eazybusiness.in
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: node api/index.js
