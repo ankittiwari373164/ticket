@@ -7,6 +7,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const app = express();
+const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
@@ -231,15 +232,12 @@ app.post('/api/login', async (req, res) => {
       message: 'Login successful'
     });
   } else {
-    res.status(401).json({
-      success: false,
-      error: 'Login failed'
-    });
+    res.status(401).json({ error: 'Login failed' });
   }
 });
 
-// Validate session endpoint
-app.post('/api/validate-session', (req, res) => {
+// Validate session ID endpoint
+app.post('/api/validate-session', async (req, res) => {
   const { sessionId } = req.body;
 
   if (!sessionId) {
@@ -253,13 +251,10 @@ app.post('/api/validate-session', (req, res) => {
     res.json({
       success: true,
       sessionId: sessionId,
-      message: 'Session validated'
+      message: 'Session ID validated'
     });
   } else {
-    res.status(401).json({
-      success: false,
-      error: 'Invalid session ID'
-    });
+    res.status(401).json({ error: 'Invalid session ID format' });
   }
 });
 
@@ -268,10 +263,12 @@ app.post('/api/create-ticket', async (req, res) => {
   const { sessionId, ticketData } = req.body;
 
   if (!sessionId || !ticketData) {
-    return res.status(400).json({ error: 'Session ID and ticket data required' });
+    return res.status(400).json({ error: 'sessionId and ticketData required' });
   }
 
-  const auth = new EazyBusinessAuth(sessionId);
+  const auth = new EazyBusinessAuth();
+  auth.sessionId = sessionId;
+
   const automation = new TicketAutomation(auth);
   const result = await automation.createTicket(ticketData);
 
@@ -283,37 +280,36 @@ app.post('/api/create-tickets', async (req, res) => {
   const { sessionId, contactData, count = 10, delayMs = 3000 } = req.body;
 
   if (!sessionId || !contactData) {
-    return res.status(400).json({ error: 'Session ID and contact data required' });
+    return res.status(400).json({ error: 'sessionId and contactData required' });
   }
 
-  const auth = new EazyBusinessAuth(sessionId);
+  const auth = new EazyBusinessAuth();
+  auth.sessionId = sessionId;
+
   const automation = new TicketAutomation(auth);
   const results = await automation.createMultipleTickets(contactData, count, delayMs);
 
-  const successful = results.filter(r => r.success).length;
-  const failed = results.filter(r => !r.success).length;
-
   res.json({
     success: true,
+    totalRequested: count,
+    results: results,
     summary: {
-      total: results.length,
-      successful,
-      failed
-    },
-    results
+      successful: results.filter(r => r.success).length,
+      failed: results.filter(r => !r.success).length
+    }
   });
 });
 
 // Status endpoint
 app.get('/api/status', (req, res) => {
   res.json({
-    status: 'operational',
-    uptime: process.uptime(),
-    timestamp: new Date().toISOString()
+    status: 'active',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
   });
 });
 
-// Dashboard HTML generator
+// ==================== DASHBOARD HTML ====================
 function getDashboardHTML() {
   return `
 <!DOCTYPE html>
@@ -323,228 +319,165 @@ function getDashboardHTML() {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EazyBusiness Ticket Automation</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             display: flex;
-            justify-content: center;
             align-items: center;
+            justify-content: center;
             padding: 20px;
         }
-
         .container {
             background: white;
-            padding: 40px;
-            border-radius: 10px;
+            border-radius: 15px;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             max-width: 500px;
             width: 100%;
+            padding: 40px;
         }
-
         h1 {
             color: #333;
             margin-bottom: 10px;
             text-align: center;
         }
-
         .subtitle {
             color: #666;
+            font-size: 14px;
             text-align: center;
             margin-bottom: 30px;
-            font-size: 14px;
         }
-
-        .auth-method-tabs {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 30px;
-            border-bottom: 2px solid #eee;
-        }
-
-        .auth-method-tabs button {
-            flex: 1;
-            padding: 12px;
-            border: none;
-            background: #888;
-            color: white;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
-            transition: all 0.3s;
-        }
-
-        .auth-method-tabs button.active {
-            background: #667eea;
-        }
-
         .form-group {
             margin-bottom: 20px;
         }
-
         label {
             display: block;
             margin-bottom: 8px;
             color: #333;
-            font-weight: 600;
-            font-size: 14px;
+            font-weight: 500;
         }
-
-        input[type="text"],
-        input[type="email"],
-        input[type="password"],
-        input[type="tel"],
-        input[type="number"] {
+        input, select, textarea {
             width: 100%;
             padding: 12px;
-            border: 2px solid #eee;
-            border-radius: 5px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
             font-size: 14px;
             transition: border-color 0.3s;
         }
-
-        input:focus {
+        input:focus, select:focus, textarea:focus {
             outline: none;
             border-color: #667eea;
         }
-
-        .btn-login,
-        .btn-single,
-        .btn-multiple {
-            width: 100%;
-            padding: 12px;
-            border: none;
-            border-radius: 5px;
-            color: white;
-            font-weight: 600;
-            cursor: pointer;
-            font-size: 14px;
-            transition: all 0.3s;
-            margin-top: 10px;
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 30px;
         }
-
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
         .btn-login {
             background: #667eea;
+            color: white;
+            grid-column: 1 / -1;
         }
-
-        .btn-login:hover {
-            background: #5568d3;
-            transform: translateY(-2px);
-        }
-
+        .btn-login:hover { background: #5568d3; }
         .btn-single {
-            background: #48bb78;
+            background: #4CAF50;
+            color: white;
         }
-
-        .btn-single:hover {
-            background: #38a169;
-        }
-
+        .btn-single:hover { background: #45a049; }
         .btn-multiple {
-            background: #ed8936;
+            background: #ff9800;
+            color: white;
         }
-
-        .btn-multiple:hover {
-            background: #dd6b20;
-        }
-
-        .button-group {
-            display: flex;
-            gap: 10px;
-        }
-
-        .button-group button {
-            flex: 1;
-            margin: 0 !important;
-        }
-
+        .btn-multiple:hover { background: #e68900; }
         .status {
-            padding: 15px;
-            border-radius: 5px;
-            margin-top: 20px;
-            text-align: center;
-            font-weight: 600;
+            margin-top: 30px;
+            padding: 20px;
+            border-radius: 8px;
             display: none;
         }
-
         .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
             display: block;
-            background: #c6f6d5;
-            color: #22543d;
         }
-
         .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
             display: block;
-            background: #fed7d7;
-            color: #742a2a;
         }
-
         .status.loading {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
             display: block;
-            background: #bee3f8;
-            color: #2c5282;
         }
-
         .results {
-            margin-top: 20px;
-            padding: 15px;
-            background: #f7fafc;
-            border-radius: 5px;
             max-height: 300px;
             overflow-y: auto;
+            margin-top: 15px;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            font-size: 13px;
         }
-
         .result-item {
             padding: 8px;
             margin: 5px 0;
-            border-radius: 3px;
-            font-size: 13px;
+            border-radius: 4px;
+            background: white;
         }
-
-        .result-item.success {
-            background: #c6f6d5;
-            color: #22543d;
-        }
-
-        .result-item.error {
-            background: #fed7d7;
-            color: #742a2a;
-        }
-
+        .result-item.success { border-left: 4px solid #4CAF50; }
+        .result-item.error { border-left: 4px solid #f44336; }
         .advanced {
             margin-top: 30px;
             padding-top: 20px;
-            border-top: 2px solid #eee;
+            border-top: 2px solid #e0e0e0;
         }
-
-        #emailAuth,
-        #sessionAuth {
-            display: none;
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
-
-        #emailAuth.show,
-        #sessionAuth.show {
-            display: block;
+        .info-box {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            color: #1976d2;
+            font-size: 13px;
+            margin-bottom: 20px;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🎫 EazyBusiness Tickets</h1>
-        <p class="subtitle">Automated Ticket Creation System</p>
+        <h1>🎫 Ticket Automation</h1>
+        <p class="subtitle">Create tickets automatically on EazyBusiness</p>
 
-        <div class="auth-method-tabs">
-            <button id="methodEmail" class="active" onclick="setAuthMethod('email')">Email & Password</button>
-            <button id="methodSession" onclick="setAuthMethod('session')">Session ID</button>
+        <div class="info-box">
+            <strong>Info:</strong> Enter your credentials to authenticate and create tickets automatically. Or paste your existing session ID.
         </div>
 
-        <div id="emailAuth" class="show">
+        <div style="margin-bottom: 20px;">
+            <label style="font-weight: bold; margin-bottom: 10px; display: block;">Choose Authentication Method:</label>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;">
+                <button id="methodEmail" onclick="setAuthMethod('email')" style="padding: 10px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">📧 Email/Password</button>
+                <button id="methodSession" onclick="setAuthMethod('session')" style="padding: 10px; background: #888; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">🔑 Session ID</button>
+            </div>
+        </div>
+
+        <div id="emailAuth">
             <div class="form-group">
                 <label>📧 Email</label>
                 <input type="email" id="email" placeholder="your@email.com" required>
@@ -555,13 +488,13 @@ function getDashboardHTML() {
                 <input type="password" id="password" placeholder="Enter password" required>
             </div>
 
-            <button class="btn-login" onclick="handleLogin()">Login</button>
+            <button class="btn-login" onclick="handleLogin()">Login & Authenticate</button>
         </div>
 
-        <div id="sessionAuth">
+        <div id="sessionAuth" style="display: none;">
             <div class="form-group">
-                <label>🔐 Session ID</label>
-                <input type="text" id="sessionInput" placeholder="Enter your session ID" required>
+                <label>🔑 Session ID</label>
+                <input type="text" id="sessionInput" placeholder="Paste your session ID here" required>
             </div>
 
             <button class="btn-login" onclick="handleSessionValidation()">Validate Session ID</button>
